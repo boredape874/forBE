@@ -11,6 +11,7 @@ import Box from 'lucide-icons-qwik/icons/Box';
 import Eye from 'lucide-icons-qwik/icons/Eye';
 import Flag from 'lucide-icons-qwik/icons/Flag';
 import GalleryHorizontalEnd from 'lucide-icons-qwik/icons/GalleryHorizontalEnd';
+import ImageUp from 'lucide-icons-qwik/icons/ImageUp';
 import LinkIcon from 'lucide-icons-qwik/icons/Link';
 import MemoryStick from 'lucide-icons-qwik/icons/MemoryStick';
 import MessageSquare from 'lucide-icons-qwik/icons/MessageSquare';
@@ -230,6 +231,20 @@ export default component$(() => {
         )}
       </p>
       <div class="mb-2 flex flex-wrap gap-2 *:flex-1">
+        <Link
+          class="lum-card lum-grad-bg-lum-card-bg/30 hover:lum-bg-blue relative transition-all duration-200!"
+          onMouseMove$={(e, el) => Hoverable.onMouseMove$(e, el)}
+          onMouseLeave$={(e, el) => Hoverable.onMouseLeave$(e, el)}
+          href="/resources/glyph"
+        >
+          <div class="rounded-lum absolute inset-0 -z-10 h-full w-full overflow-clip object-cover saturate-200">
+            <div class="bg-blue/30 absolute top-0 h-full w-full -translate-y-1/2 scale-75 rounded-full blur-2xl" />
+          </div>
+          <h3 class="mb-2 flex items-center gap-2 text-2xl font-bold">
+            <ImageUp size={30} /> Bedrock Glyph Generator
+          </h3>
+          <p class="text-lum-text-secondary">이미지를 베드락 리소스팩용 glyph_EX.png 시트와 PUA 문자로 빠르게 변환합니다.</p>
+        </Link>
         <Link
           class="lum-card lum-grad-bg-lum-card-bg/30 hover:lum-bg-purple relative transition-all duration-200!"
           onMouseMove$={(e, el) => Hoverable.onMouseMove$(e, el)}

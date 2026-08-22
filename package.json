@@ -30,6 +30,7 @@
     "build": "pnpm build.pkg && wrangler types && qwik build",
     "build.pkg": "cd packages/rgbirdflop && pnpm run build && cd ../analyze && pnpm run build",
     "build.client": "vp build",
+    "build.pages": "vp build -c adapters/github-pages/vite.config.ts",
     "build.preview": "vp build --ssr src/entry.preview.tsx",
     "build.server": "qwik check-client src dist && vp build -c adapters/cloudflare-workers/vite.config.ts",
     "build.types": "tsc --incremental --noEmit",
