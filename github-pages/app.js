@@ -35,6 +35,7 @@ function imageFromFile(file) {
     image.src = url;
   });
 }
+function setPage(prefix) { page=prefix.toUpperCase(); if(!Array.from(pageInput.options).some(option=>option.value===page)) pageInput.add(new Option(`glyph_${page}.png · U+${page}00–U+${page}FF`,page)); pageInput.value=page; }
 function contentSize() {
   const size = cellSize();
   const x0 = (slot % grid) * size;
@@ -97,12 +98,14 @@ function render() {
 function resetAtlas(size = 512) { atlas.width = size; atlas.height = size; render(); }
 atlasInput.addEventListener('change', async () => {
   const file = atlasInput.files[0]; if (!file) return;
-  const name = file.name.match(/^glyph_([0-9a-f]{2})\.png$/i);
+  const name = file.name.match(/^glyph_([0-9a-f]{1,4})\.png$/i);
   if (!name) { error.textContent = 'glyph_E2.png처럼 코드페이지 파일명만 열 수 있습니다. default8.png 등은 다른 폰트 규칙을 사용합니다.'; return; }
+  if (parseInt(name[1],16)>0x10ff) { error.textContent = '유니코드 범위를 벗어난 글리프 페이지입니다.'; return; }
   const image = await imageFromFile(file);
-  if (image.width !== image.height || image.width % grid !== 0 || image.width > 8192) { error.textContent = '정사각형이고 한 변이 16으로 나누어지는 PNG가 필요합니다.'; return; }
-  page = name[1].toUpperCase(); pageInput.value = page; atlas.width = image.width; atlas.height = image.height;
-  atlas.getContext('2d').drawImage(image, 0, 0); fileName.textContent = file.name; error.textContent = ''; render();
+  if (image.width < grid || image.height < grid || image.width > 8192 || image.height > 8192) { error.textContent = '가로·세로 16px 이상, 최대 8192px인 PNG가 필요합니다.'; return; }
+  const sourceWidth=image.width,sourceHeight=image.height,size=Math.floor(Math.min(sourceWidth,sourceHeight)/grid)*grid;
+  setPage(name[1]); atlas.width=size;atlas.height=size;const context=atlas.getContext('2d');context.imageSmoothingEnabled=false;context.drawImage(image,0,0,sourceWidth,sourceHeight,0,0,size,size);
+  fileName.textContent = file.name; error.textContent = sourceWidth===size&&sourceHeight===size?'':`원본 ${sourceWidth}×${sourceHeight}px → 편집 아틀라스 ${size}×${size}px`; render();
 });
 preview.addEventListener('click', event => {
   const rect = preview.getBoundingClientRect(); const size = cellSize();
