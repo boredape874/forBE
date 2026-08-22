@@ -29,6 +29,8 @@
           <label>그라데이션 색상</label><div id="colors" class="color-stops"></div><button id="add-color" type="button">색상 추가</button>
           <label>그라데이션<select id="gradient"><option value="rgb">RGB</option><option value="hsl">HSL</option><option value="oklab">OKLAB</option><option value="oklch">OKLCH</option><option value="cielab">CIELAB</option><option value="luvLCh">LuvLCh</option></select></label>
           <div class="format-buttons"><button id="bold" aria-pressed="false">B</button><button id="italic" aria-pressed="false"><i>I</i></button><button id="underline" aria-pressed="false"><u>U</u></button><button id="shadow" aria-pressed="true">그림자</button></div>
+          <label><span><input id="custom-shadow" type="checkbox"> 사용자 지정 그림자 그라데이션</span></label>
+          <div id="shadow-editor" hidden><label>그림자 색상</label><div id="shadow-colors" class="color-stops"></div><button id="add-shadow-color" type="button">그림자 색상 추가</button></div>
           <label>글꼴<select id="font"><option value="minecraft">Minecraft 원본 글꼴 묶음</option><option value="sans-serif">Sans</option><option value="serif">Serif</option><option value="monospace">Mono</option></select></label>
           <label>사용자 글꼴<input id="font-input" type="file" accept=".ttf,.otf,.woff,.woff2"></label>
           <label>최대 크기 <output id="size-value">80%</output><input id="scale" type="range" min="0.1" max="1.5" step="0.05" value="0.8"></label>

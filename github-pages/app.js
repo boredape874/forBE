@@ -20,6 +20,7 @@ let slot = 0;
 let copiedSequence = '';
 const format = { bold: false, italic: false, underline: false, shadow: true };
 let colors = [{ hex: '#54daf4', pos: 0 }, { hex: '#545eb6', pos: 100 }];
+let shadowColors = null;
 
 for (let value = 0xe0; value <= 0xf8; value++) {
   const prefix = value.toString(16).toUpperCase();
@@ -54,7 +55,7 @@ function contentSize() {
 function hexRgb(hex) { const value = parseInt(hex.slice(1), 16); return [(value >> 16) & 255, (value >> 8) & 255, value & 255]; }
 function rgbHex(rgb) { return `#${rgb.map(value => Math.round(value).toString(16).padStart(2, '0')).join('')}`; }
 function gradientPalette(count) {
-  const options={colors:sortColors(colors),shadowColors:null};
+  const options={colors:sortColors(colors),shadowColors:shadowColors?sortColors(shadowColors):null};
   const foreground=new ColorGradient(options.colors.map(getRGBColorStop),count,document.querySelector('#gradient').value);
   const shadow=new ColorGradient(getShadowColors(options).map(getRGBColorStop),count);
   return Array.from({length:count},()=>({foreground:foreground.next(),shadow:shadow.next()}));
@@ -79,6 +80,7 @@ function sequencePlan(text) {
   return {items,output};
 }
 function renderColors() { const wrap=document.querySelector('#colors');wrap.replaceChildren();colors.forEach((stop,index)=>{const row=document.createElement('div');row.className='color-stop';row.innerHTML=`<input type="color" value="${stop.hex}"><input type="number" min="0" max="100" value="${stop.pos}" aria-label="위치"><button type="button" aria-label="삭제">×</button>`;const inputs=row.querySelectorAll('input');inputs[0].addEventListener('input',()=>{stop.hex=inputs[0].value;render();});inputs[1].addEventListener('input',()=>{stop.pos=Math.min(100,Math.max(0,Number(inputs[1].value)));render();});row.querySelector('button').addEventListener('click',()=>{if(colors.length<=1)return;colors.splice(index,1);renderColors();render();});wrap.append(row);}); }
+function renderShadowColors() { const wrap=document.querySelector('#shadow-colors');wrap.replaceChildren();if(!shadowColors)return;shadowColors.forEach((stop,index)=>{const row=document.createElement('div');row.className='color-stop';row.innerHTML=`<input type="color" value="${stop.hex}"><input type="number" min="0" max="100" value="${stop.pos}" aria-label="그림자 위치"><button type="button" aria-label="그림자 색상 삭제">×</button>`;const inputs=row.querySelectorAll('input');inputs[0].addEventListener('input',()=>{stop.hex=inputs[0].value;render();});inputs[1].addEventListener('input',()=>{stop.pos=Math.min(100,Math.max(0,Number(inputs[1].value)));render();});row.querySelector('button').addEventListener('click',()=>{if(shadowColors.length<=1)return;shadowColors.splice(index,1);renderShadowColors();render();});wrap.append(row);}); }
 function drawText(context, commit, text=textInput.value, targetSlot=slot, fixedPalette=null) {
   if (!text) return;
   const size=cellSize(), x=(targetSlot%grid)*size, y=Math.floor(targetSlot/grid)*size;
@@ -151,9 +153,11 @@ document.querySelector('#apply-text').addEventListener('click', async () => {
 });
 ['text','packing','gradient','font','scale','spacing','offset-x','offset-y','align'].forEach(id=>document.querySelector(`#${id}`).addEventListener('input',()=>{document.querySelector('#size-value').textContent=`${Math.round(Number(scaleInput.value)*100)}%`;document.querySelector('#spacing-value').textContent=`${Math.round(Number(document.querySelector('#spacing').value)*100)}%`;render();}));
 document.querySelector('#add-color').addEventListener('click',()=>{const last=colors.at(-1);colors.push({hex:last.hex,pos:100});const count=colors.length-1;colors=colors.map((color,index)=>({...color,pos:Math.round(index/count*100)}));renderColors();render();});
+document.querySelector('#custom-shadow').addEventListener('change',event=>{shadowColors=event.target.checked?colors.map(color=>({hex:rgbHex(hexRgb(color.hex).map(value=>value*.25)),pos:color.pos})):null;document.querySelector('#shadow-editor').hidden=!shadowColors;renderShadowColors();render();});
+document.querySelector('#add-shadow-color').addEventListener('click',()=>{if(!shadowColors)return;const last=shadowColors.at(-1);shadowColors.push({hex:last.hex,pos:100});const count=shadowColors.length-1;shadowColors=shadowColors.map((color,index)=>({...color,pos:Math.round(index/count*100)}));renderShadowColors();render();});
 ['bold','italic','underline','shadow'].forEach(id=>document.querySelector(`#${id}`).addEventListener('click',()=>{format[id]=!format[id];document.querySelector(`#${id}`).setAttribute('aria-pressed',String(format[id]));render();}));
 document.querySelector('#font-input').addEventListener('change',async()=>{const file=document.querySelector('#font-input').files[0];if(!file)return;const family=`forBE-${Date.now()}`,url=URL.createObjectURL(file),face=new FontFace(family,`url(${url})`);await face.load();document.fonts.add(face);document.querySelector('#font').add(new Option(file.name,family,true,true));URL.revokeObjectURL(url);render();});
 document.querySelector('#clear').addEventListener('click', () => { const size = cellSize(); atlas.getContext('2d').clearRect((slot % grid) * size, Math.floor(slot / grid) * size, size, size); render(); });
 document.querySelector('#copy').addEventListener('click', async () => { await navigator.clipboard.writeText(copiedSequence||String.fromCodePoint(codePoint()));const label=document.querySelector('#copy').textContent;document.querySelector('#copy').textContent='복사됨';setTimeout(()=>document.querySelector('#copy').textContent=label,1200); });
 document.querySelector('#download').addEventListener('click', () => atlas.toBlob(blob => { const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = glyphName(); link.click(); setTimeout(() => URL.revokeObjectURL(url), 0); }, 'image/png'));
-renderColors();resetAtlas();
+renderColors();renderShadowColors();resetAtlas();
