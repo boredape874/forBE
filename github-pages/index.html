@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>forBE · Bedrock Glyph Editor</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <main>
+      <header><p>forBE · Minecraft Bedrock Edition</p><h1>Glyph Editor</h1><span>glyph_EX.png을 브라우저에서 직접 수정합니다. 어떤 파일도 업로드되지 않습니다.</span></header>
+      <section class="workspace">
+        <aside class="panel">
+          <label>글리프 시트 열기<input id="atlas-input" type="file" accept="image/png"></label>
+          <p id="file-name">새 glyph_E2.png</p>
+          <label>글리프 페이지<select id="page"></select></label>
+          <p id="atlas-info">512×512px · 셀 32×32px</p>
+          <p class="hint">glyph_EX.png은 16×16 주소 슬롯입니다. 실제 셀 크기는 시트 해상도에서 자동 계산합니다.</p>
+          <p id="error" class="error"></p>
+        </aside>
+        <section class="panel canvas-panel"><div class="toolbar"><div><strong>글리프 시트</strong><small>칸을 눌러 선택합니다.</small></div><button id="download">glyph_E2.png 다운로드</button></div><div class="canvas-wrap"><canvas id="atlas-preview"></canvas></div></section>
+        <aside class="panel">
+          <h2>선택한 슬롯</h2><p id="position">행 0 · 열 0</p><div class="code"><small>코드포인트 · 콘텐츠 크기</small><strong id="code">U+E200 · 투명</strong><b id="character"></b></div>
+          <button id="copy">PUA 문자 복사</button>
+          <label>텍스트로 이 칸 만들기<input id="text" placeholder="예: SHOP"></label>
+          <label>색상과 크기<span class="inline"><input id="color" type="color" value="#ffffff"><input id="scale" type="range" min="0.25" max="1" step="0.05" value="1"></span></label>
+          <button id="apply-text">텍스트 적용</button>
+          <label>이 칸을 이미지로 교체<input id="tile-input" type="file" accept="image/png,image/webp,image/jpeg"></label>
+          <button class="danger" id="clear">선택 칸 비우기</button>
+          <p class="hint">다운로드한 파일을 리소스팩의 <code id="path">font/glyph_E2.png</code>에 넣으세요.</p>
+        </aside>
+      </section>
+    </main>
+    <canvas id="atlas" hidden></canvas>
+    <script src="app.js"></script>
+  </body>
+</html>

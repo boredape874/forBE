@@ -19,16 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-      - run: corepack enable
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm exec vp build -c adapters/github-pages/vite.config.ts
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist-pages
+          path: github-pages
   deploy:
     needs: build
     runs-on: ubuntu-latest
