@@ -70,17 +70,15 @@ function minecraftFont() {
 }
 function sequencePlan(text) {
   const chars=Array.from(text),palette=gradientPalette(chars.length),items=[];
-  const gap=Number(document.querySelector('#spacing').value);let output='',used=0,hasVisible=false;
+  let output='',used=0;
   chars.forEach((char,index)=>{
-    if(/\s/u.test(char)){output+=char;hasVisible=false;return;}
-    if(hasVisible&&gap>0&&slot+used+1<256){items.push({spacer:true,targetSlot:slot+used});output+=String.fromCodePoint(parseInt(page,16)*256+slot+used);used++;}
+    if(/\s/u.test(char)){output+=char;return;}
     if(slot+used>=256)return;
-    items.push({spacer:false,char,targetSlot:slot+used,palette:[palette[index]]});
-    output+=String.fromCodePoint(parseInt(page,16)*256+slot+used);used++;hasVisible=true;
+    items.push({char,targetSlot:slot+used,palette:[palette[index]]});
+    output+=String.fromCodePoint(parseInt(page,16)*256+slot+used);used++;
   });
-  return {items,output,charCount:items.filter(item=>!item.spacer).length};
+  return {items,output,charCount:items.length};
 }
-function drawSpacer(context,commit,targetSlot) { const size=cellSize(),x=(targetSlot%grid)*size,y=Math.floor(targetSlot/grid)*size,tile=document.createElement('canvas'),gap=Number(document.querySelector('#spacing').value);tile.width=size;tile.height=size;const tileContext=tile.getContext('2d'),markerX=Math.max(0,Math.min(size-1,Math.round(size/8)*gap-1));const image=tileContext.createImageData(size,size),marker=(Math.floor(size/2)*size+markerX)*4;image.data[marker+3]=20;tileContext.putImageData(image,0,0);if(commit)context.clearRect(x,y,size,size);context.drawImage(tile,x,y); }
 function renderColors() { const wrap=document.querySelector('#colors');wrap.replaceChildren();colors.forEach((stop,index)=>{const row=document.createElement('div');row.className='color-stop';row.innerHTML=`<input type="color" value="${stop.hex}"><input type="number" min="0" max="100" value="${stop.pos}" aria-label="위치"><button type="button" aria-label="삭제">×</button>`;const inputs=row.querySelectorAll('input');inputs[0].addEventListener('input',()=>{stop.hex=inputs[0].value;render();});inputs[1].addEventListener('input',()=>{stop.pos=Math.min(100,Math.max(0,Number(inputs[1].value)));render();});row.querySelector('button').addEventListener('click',()=>{if(colors.length<=1)return;colors.splice(index,1);renderColors();render();});wrap.append(row);}); }
 function renderShadowColors() { const wrap=document.querySelector('#shadow-colors');wrap.replaceChildren();if(!shadowColors)return;shadowColors.forEach((stop,index)=>{const row=document.createElement('div');row.className='color-stop';row.innerHTML=`<input type="color" value="${stop.hex}"><input type="number" min="0" max="100" value="${stop.pos}" aria-label="그림자 위치"><button type="button" aria-label="그림자 색상 삭제">×</button>`;const inputs=row.querySelectorAll('input');inputs[0].addEventListener('input',()=>{stop.hex=inputs[0].value;render();});inputs[1].addEventListener('input',()=>{stop.pos=Math.min(100,Math.max(0,Number(inputs[1].value)));render();});row.querySelector('button').addEventListener('click',()=>{if(shadowColors.length<=1)return;shadowColors.splice(index,1);renderShadowColors();render();});wrap.append(row);}); }
 function drawText(context, commit, text=textInput.value, targetSlot=slot, fixedPalette=null) {
@@ -90,7 +88,7 @@ function drawText(context, commit, text=textInput.value, targetSlot=slot, fixedP
   const family=minecraftFont(),customFont=document.querySelector('#font').value!=='minecraft',style=customFont?`${format.italic?'italic ':''}${format.bold?'700 ':'400 '}`:'';
   let fontSize=Math.max(1,Math.round(size*Number(scaleInput.value)));tileContext.font=`${style}${fontSize}px ${family}`;
   const chars=Array.from(text.replace(/\n/g,' '));let widths=chars.map(char=>tileContext.measureText(char).width),total=widths.reduce((sum,value)=>sum+value,0);
-  const rightGap=0;
+  const rightGap=Math.max(0,Math.round(size/8)*Number(document.querySelector('#spacing').value));
   if(total>size-rightGap){fontSize=Math.max(1,Math.floor(fontSize*(size-rightGap)/total));tileContext.font=`${style}${fontSize}px ${family}`;widths=chars.map(char=>tileContext.measureText(char).width);total=widths.reduce((sum,value)=>sum+value,0);}
   tileContext.textBaseline='middle'; const align=document.querySelector('#align').value; tileContext.textAlign='center';
   const sequenceCell=fixedPalette!==null,anchor=sequenceCell?0:align==='left'?0:align==='right'?size-rightGap:size/2;
@@ -98,7 +96,7 @@ function drawText(context, commit, text=textInput.value, targetSlot=slot, fixedP
   let cursor=sequenceCell?0:anchor-total*(align==='center'?0.5:align==='right'?1:0);
   const palette=fixedPalette??gradientPalette(chars.length);
   chars.forEach((char,index)=>{const width=widths[index],color=palette[index]??palette[0];if(format.shadow){tileContext.fillStyle=rgbHex(color.shadow);tileContext.fillText(char,cursor+width/2+1+offsetX,size/2+1+offsetY);}tileContext.fillStyle=rgbHex(color.foreground);tileContext.fillText(char,cursor+width/2+offsetX,size/2+offsetY);if(format.underline)tileContext.fillRect(cursor+offsetX,size/2+fontSize*.42+offsetY,width,Math.max(1,fontSize/14));cursor+=width;});
-  const image=tileContext.getImageData(0,0,size,size);for(let index=0;index<image.data.length;index+=4)image.data[index+3]=image.data[index+3]>=96?255:0;tileContext.putImageData(image,0,0);
+  const image=tileContext.getImageData(0,0,size,size);let maxOpaqueX=-1,maxOpaqueY=0;for(let index=0;index<image.data.length;index+=4){image.data[index+3]=image.data[index+3]>=96?255:0;if(image.data[index+3]===255){const pixel=index/4,x=pixel%size,y=Math.floor(pixel/size);if(x>maxOpaqueX){maxOpaqueX=x;maxOpaqueY=y;}}}if(sequenceCell&&maxOpaqueX>=0&&rightGap>0)for(let distance=1;distance<=rightGap&&maxOpaqueX+distance<size;distance++)image.data[(maxOpaqueY*size+maxOpaqueX+distance)*4+3]=20;tileContext.putImageData(image,0,0);
   if(commit)context.clearRect(x,y,size,size);context.imageSmoothingEnabled=false;context.drawImage(tile,x,y);document.querySelector('#render-info').textContent=`실제 ${fontSize}px · 셀 ${size}px · 픽셀 알파 적용`;
 }
 function render() {
@@ -107,7 +105,7 @@ function render() {
   context.imageSmoothingEnabled = false;
   context.clearRect(0, 0, preview.width, preview.height);
   context.drawImage(atlas, 0, 0);
-  const plan=sequencePlan(textInput.value);if(document.querySelector('#packing').value==='sequence'&&plan.items.length)plan.items.forEach(item=>item.spacer?drawSpacer(context,false,item.targetSlot):drawText(context,false,item.char,item.targetSlot,item.palette));else drawText(context,false);
+  const plan=sequencePlan(textInput.value);if(document.querySelector('#packing').value==='sequence'&&plan.items.length)plan.items.forEach(item=>drawText(context,false,item.char,item.targetSlot,item.palette));else drawText(context,false);
   const size = cellSize();
   context.strokeStyle = '#ffffff55'; context.lineWidth = Math.max(1, Math.round(size / 32));
   for (let index = 0; index <= grid; index++) {
@@ -151,7 +149,7 @@ tileInput.addEventListener('change', async () => {
   context.drawImage(image, x + Math.floor((size - width) / 2), y + Math.floor((size - height) / 2), width, height); render();
 });
 document.querySelector('#apply-text').addEventListener('click', async () => {
-  if (!textInput.value) return;await document.fonts.ready;const sequence=document.querySelector('#packing').value==='sequence',plan=sequencePlan(textInput.value),context=atlas.getContext('2d');if(sequence)plan.items.forEach(item=>item.spacer?drawSpacer(context,true,item.targetSlot):drawText(context,true,item.char,item.targetSlot,item.palette));else drawText(context,true);copiedSequence=sequence?plan.output:String.fromCodePoint(codePoint());document.querySelector('#copy').textContent=sequence?`${plan.charCount}자 + 간격 PUA 복사`:'PUA 문자 복사';textInput.value='';render();
+  if (!textInput.value) return;await document.fonts.ready;const sequence=document.querySelector('#packing').value==='sequence',plan=sequencePlan(textInput.value),context=atlas.getContext('2d');if(sequence)plan.items.forEach(item=>drawText(context,true,item.char,item.targetSlot,item.palette));else drawText(context,true);copiedSequence=sequence?plan.output:String.fromCodePoint(codePoint());document.querySelector('#copy').textContent=sequence?`${plan.charCount}자 PUA 문자열 복사`:'PUA 문자 복사';textInput.value='';render();
 });
 ['text','packing','gradient','font','scale','spacing','offset-x','offset-y','align'].forEach(id=>document.querySelector(`#${id}`).addEventListener('input',()=>{document.querySelector('#size-value').textContent=`${Math.round(Number(scaleInput.value)*100)}%`;document.querySelector('#spacing-value').textContent=`${document.querySelector('#spacing').value}px`;render();}));
 document.querySelector('#add-color').addEventListener('click',()=>{const last=colors.at(-1);colors.push({hex:last.hex,pos:100});const count=colors.length-1;colors=colors.map((color,index)=>({...color,pos:Math.round(index/count*100)}));renderColors();render();});
