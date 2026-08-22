@@ -15,6 +15,7 @@ const character = document.querySelector('#character');
 const path = document.querySelector('#path');
 let page = 'E2';
 let slot = 0;
+let copiedSequence = '';
 const format = { bold: false, italic: false, underline: false, shadow: true };
 let colors = [{ hex: '#54daf4', pos: 0 }, { hex: '#545eb6', pos: 100 }];
 
@@ -35,7 +36,7 @@ function imageFromFile(file) {
     image.src = url;
   });
 }
-function setPage(prefix) { page=prefix.toUpperCase(); if(!Array.from(pageInput.options).some(option=>option.value===page)) pageInput.add(new Option(`glyph_${page}.png · U+${page}00–U+${page}FF`,page)); pageInput.value=page; }
+function setPage(prefix) { page=prefix.toUpperCase();copiedSequence='';if(!Array.from(pageInput.options).some(option=>option.value===page)) pageInput.add(new Option(`glyph_${page}.png · U+${page}00–U+${page}FF`,page)); pageInput.value=page; }
 function contentSize() {
   const size = cellSize();
   const x0 = (slot % grid) * size;
@@ -58,19 +59,21 @@ function mixColor(start, end, amount) {
 }
 function gradientColor(amount) { const sorted=[...colors].sort((a,b)=>a.pos-b.pos), percent=amount*100; let upper=sorted.findIndex(stop=>stop.pos>=percent); if(upper<=0)return hexRgb(sorted[0].hex); if(upper<0)return hexRgb(sorted.at(-1).hex); const a=sorted[upper-1],b=sorted[upper],local=(percent-a.pos)/Math.max(1,b.pos-a.pos); return mixColor(hexRgb(a.hex),hexRgb(b.hex),local); }
 function renderColors() { const wrap=document.querySelector('#colors');wrap.replaceChildren();colors.forEach((stop,index)=>{const row=document.createElement('div');row.className='color-stop';row.innerHTML=`<input type="color" value="${stop.hex}"><input type="number" min="0" max="100" value="${stop.pos}" aria-label="위치"><button type="button" aria-label="삭제">×</button>`;const inputs=row.querySelectorAll('input');inputs[0].addEventListener('input',()=>{stop.hex=inputs[0].value;render();});inputs[1].addEventListener('input',()=>{stop.pos=Math.min(100,Math.max(0,Number(inputs[1].value)));render();});row.querySelector('button').addEventListener('click',()=>{if(colors.length<=1)return;colors.splice(index,1);renderColors();render();});wrap.append(row);}); }
-function drawText(context, commit) {
-  const text = textInput.value; if (!text) return;
-  const size=cellSize(), x=(slot%grid)*size, y=Math.floor(slot/grid)*size;
-  if (commit) context.clearRect(x,y,size,size);
-  context.save(); context.beginPath(); context.rect(x,y,size,size); context.clip();
-  const fontSize=Math.max(1,Math.round(size*Number(scaleInput.value))), family=document.querySelector('#font').value;
-  context.font=`${format.italic?'italic ':''}${format.bold?'700 ':'400 '}${fontSize}px ${family}`;
-  context.textBaseline='middle'; const align=document.querySelector('#align').value; context.textAlign='center';
-  const anchor=align==='left'?x+1:align==='right'?x+size-1:x+size/2;
+function drawText(context, commit, text=textInput.value, targetSlot=slot, fixedColor=null) {
+  if (!text) return;
+  const size=cellSize(), x=(targetSlot%grid)*size, y=Math.floor(targetSlot/grid)*size;
+  const tile=document.createElement('canvas');tile.width=size;tile.height=size;const tileContext=tile.getContext('2d',{willReadFrequently:true});
+  const family=document.querySelector('#font').value, style=`${format.italic?'italic ':''}${format.bold?'700 ':'400 '}`;
+  let fontSize=Math.max(1,Math.round(size*Number(scaleInput.value)));tileContext.font=`${style}${fontSize}px ${family}`;
+  const chars=Array.from(text.replace(/\n/g,' '));let widths=chars.map(char=>tileContext.measureText(char).width),total=widths.reduce((sum,value)=>sum+value,0);
+  if(total>size-2){fontSize=Math.max(1,Math.floor(fontSize*(size-2)/total));tileContext.font=`${style}${fontSize}px ${family}`;widths=chars.map(char=>tileContext.measureText(char).width);total=widths.reduce((sum,value)=>sum+value,0);}
+  tileContext.textBaseline='middle'; const align=document.querySelector('#align').value; tileContext.textAlign='center';
+  const anchor=align==='left'?1:align==='right'?size-1:size/2;
   const offsetX=Number(document.querySelector('#offset-x').value)||0, offsetY=Number(document.querySelector('#offset-y').value)||0;
-  const chars=Array.from(text.replace(/\n/g,' ')), widths=chars.map(char=>context.measureText(char).width), total=widths.reduce((sum,value)=>sum+value,0);
   let cursor=anchor-total*(align==='center'?0.5:align==='right'?1:0);
-  chars.forEach((char,index)=>{ const width=widths[index], color=rgbHex(gradientColor(chars.length<2?0:index/(chars.length-1))); if(format.shadow){context.fillStyle='#00000099';context.fillText(char,cursor+width/2+Math.max(1,size/32)+offsetX,y+size/2+Math.max(1,size/32)+offsetY);} context.fillStyle=color;context.fillText(char,cursor+width/2+offsetX,y+size/2+offsetY); if(format.underline) context.fillRect(cursor+offsetX,y+size/2+fontSize*.42+offsetY,width,Math.max(1,fontSize/14)); cursor+=width; }); context.restore();
+  chars.forEach((char,index)=>{const width=widths[index],color=rgbHex(gradientColor(fixedColor===null?(chars.length<2?0:index/(chars.length-1)):fixedColor));if(format.shadow){tileContext.fillStyle='#000';tileContext.fillText(char,cursor+width/2+Math.max(1,size/32)+offsetX,size/2+Math.max(1,size/32)+offsetY);}tileContext.fillStyle=color;tileContext.fillText(char,cursor+width/2+offsetX,size/2+offsetY);if(format.underline)tileContext.fillRect(cursor+offsetX,size/2+fontSize*.42+offsetY,width,Math.max(1,fontSize/14));cursor+=width;});
+  const image=tileContext.getImageData(0,0,size,size);for(let index=0;index<image.data.length;index+=4)image.data[index+3]=image.data[index+3]>=96?255:0;tileContext.putImageData(image,0,0);
+  if(commit)context.clearRect(x,y,size,size);context.imageSmoothingEnabled=false;context.drawImage(tile,x,y);document.querySelector('#render-info').textContent=`실제 ${fontSize}px · 셀 ${size}px · 픽셀 알파 적용`;
 }
 function render() {
   preview.width = atlas.width; preview.height = atlas.height;
@@ -78,7 +81,7 @@ function render() {
   context.imageSmoothingEnabled = false;
   context.clearRect(0, 0, preview.width, preview.height);
   context.drawImage(atlas, 0, 0);
-  drawText(context, false);
+  const draft=Array.from(textInput.value.replace(/\s/g,''));if(document.querySelector('#packing').value==='sequence'&&draft.length>1)draft.slice(0,256-slot).forEach((char,index)=>drawText(context,false,char,slot+index,index/Math.max(1,draft.length-1)));else drawText(context,false);
   const size = cellSize();
   context.strokeStyle = '#ffffff55'; context.lineWidth = Math.max(1, Math.round(size / 32));
   for (let index = 0; index <= grid; index++) {
@@ -111,9 +114,9 @@ preview.addEventListener('click', event => {
   const rect = preview.getBoundingClientRect(); const size = cellSize();
   const x = (event.clientX - rect.left) * preview.width / rect.width;
   const y = (event.clientY - rect.top) * preview.height / rect.height;
-  slot = Math.min(255, Math.max(0, Math.floor(y / size) * grid + Math.floor(x / size))); render();
+  slot = Math.min(255, Math.max(0, Math.floor(y / size) * grid + Math.floor(x / size)));copiedSequence='';document.querySelector('#copy').textContent='PUA 문자 복사';render();
 });
-pageInput.addEventListener('change', () => { page = pageInput.value; render(); });
+pageInput.addEventListener('change', () => { page = pageInput.value;copiedSequence='';document.querySelector('#copy').textContent='PUA 문자 복사';render(); });
 tileInput.addEventListener('change', async () => {
   const file = tileInput.files[0]; if (!file) return;
   const image = await imageFromFile(file); const size = cellSize(); const x = (slot % grid) * size; const y = Math.floor(slot / grid) * size;
@@ -122,13 +125,13 @@ tileInput.addEventListener('change', async () => {
   context.drawImage(image, x + Math.floor((size - width) / 2), y + Math.floor((size - height) / 2), width, height); render();
 });
 document.querySelector('#apply-text').addEventListener('click', async () => {
-  if (!textInput.value) return; await document.fonts.ready; drawText(atlas.getContext('2d'), true); textInput.value=''; render();
+  if (!textInput.value) return;await document.fonts.ready;const chars=Array.from(textInput.value.replace(/\s/g,'')),sequence=document.querySelector('#packing').value==='sequence'&&chars.length>1,usable=chars.slice(0,256-slot);if(sequence)usable.forEach((char,index)=>drawText(atlas.getContext('2d'),true,char,slot+index,index/Math.max(1,usable.length-1)));else drawText(atlas.getContext('2d'),true);copiedSequence=sequence?usable.map((_,index)=>String.fromCodePoint(parseInt(page,16)*256+slot+index)).join(''):String.fromCodePoint(codePoint());document.querySelector('#copy').textContent=sequence?`${usable.length}자 PUA 문자열 복사`:'PUA 문자 복사';textInput.value='';render();
 });
-['text','gradient','font','scale','offset-x','offset-y','align'].forEach(id=>document.querySelector(`#${id}`).addEventListener('input',()=>{document.querySelector('#size-value').textContent=`${Math.round(Number(scaleInput.value)*100)}%`;render();}));
+['text','packing','gradient','font','scale','offset-x','offset-y','align'].forEach(id=>document.querySelector(`#${id}`).addEventListener('input',()=>{document.querySelector('#size-value').textContent=`${Math.round(Number(scaleInput.value)*100)}%`;render();}));
 document.querySelector('#add-color').addEventListener('click',()=>{const last=colors.at(-1);colors.push({hex:last.hex,pos:100});const count=colors.length-1;colors=colors.map((color,index)=>({...color,pos:Math.round(index/count*100)}));renderColors();render();});
 ['bold','italic','underline','shadow'].forEach(id=>document.querySelector(`#${id}`).addEventListener('click',()=>{format[id]=!format[id];document.querySelector(`#${id}`).setAttribute('aria-pressed',String(format[id]));render();}));
 document.querySelector('#font-input').addEventListener('change',async()=>{const file=document.querySelector('#font-input').files[0];if(!file)return;const family=`forBE-${Date.now()}`,url=URL.createObjectURL(file),face=new FontFace(family,`url(${url})`);await face.load();document.fonts.add(face);document.querySelector('#font').add(new Option(file.name,family,true,true));URL.revokeObjectURL(url);render();});
 document.querySelector('#clear').addEventListener('click', () => { const size = cellSize(); atlas.getContext('2d').clearRect((slot % grid) * size, Math.floor(slot / grid) * size, size, size); render(); });
-document.querySelector('#copy').addEventListener('click', async () => { await navigator.clipboard.writeText(String.fromCodePoint(codePoint())); document.querySelector('#copy').textContent = '복사됨'; setTimeout(() => document.querySelector('#copy').textContent = 'PUA 문자 복사', 1200); });
+document.querySelector('#copy').addEventListener('click', async () => { await navigator.clipboard.writeText(copiedSequence||String.fromCodePoint(codePoint()));const label=document.querySelector('#copy').textContent;document.querySelector('#copy').textContent='복사됨';setTimeout(()=>document.querySelector('#copy').textContent=label,1200); });
 document.querySelector('#download').addEventListener('click', () => atlas.toBlob(blob => { const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = glyphName(); link.click(); setTimeout(() => URL.revokeObjectURL(url), 0); }, 'image/png'));
 renderColors();resetAtlas();
