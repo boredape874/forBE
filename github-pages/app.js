@@ -5,7 +5,6 @@ const pageInput = document.querySelector('#page');
 const atlasInput = document.querySelector('#atlas-input');
 const tileInput = document.querySelector('#tile-input');
 const textInput = document.querySelector('#text');
-const colorInput = document.querySelector('#color');
 const scaleInput = document.querySelector('#scale');
 const fileName = document.querySelector('#file-name');
 const atlasInfo = document.querySelector('#atlas-info');
@@ -16,10 +15,12 @@ const character = document.querySelector('#character');
 const path = document.querySelector('#path');
 let page = 'E2';
 let slot = 0;
+const format = { bold: false, italic: false, underline: false, shadow: true };
+let colors = [{ hex: '#54daf4', pos: 0 }, { hex: '#545eb6', pos: 100 }];
 
 for (let value = 0xe0; value <= 0xf8; value++) {
   const prefix = value.toString(16).toUpperCase();
-  pageInput.add(new Option(`glyph_${prefix}.png · U+${prefix}00–U+${prefix}FF`, prefix, prefix === page));
+  pageInput.add(new Option(`glyph_${prefix}.png · U+${prefix}00–U+${prefix}FF`, prefix, prefix === page, prefix === page));
 }
 
 function codePoint() { return parseInt(page, 16) * 256 + slot; }
@@ -46,12 +47,37 @@ function contentSize() {
   }
   return maxX < 0 ? '투명' : `${maxX - minX + 1}×${maxY - minY + 1}px`;
 }
+function hexRgb(hex) { const value = parseInt(hex.slice(1), 16); return [(value >> 16) & 255, (value >> 8) & 255, value & 255]; }
+function rgbHex(rgb) { return `#${rgb.map(value => Math.round(value).toString(16).padStart(2, '0')).join('')}`; }
+function rgbHsv(rgb) { const [r,g,b] = rgb.map(v => v / 255), max = Math.max(r,g,b), min = Math.min(r,g,b), d = max-min; let h = 0; if(d) h=max===r?((g-b)/d)%6:max===g?(b-r)/d+2:(r-g)/d+4; return [((h*60)+360)%360,max?d/max:0,max]; }
+function hsvRgb(hsv) { const [h,s,v]=hsv, c=v*s, x=c*(1-Math.abs((h/60)%2-1)), m=v-c; const p=h<60?[c,x,0]:h<120?[x,c,0]:h<180?[0,c,x]:h<240?[0,x,c]:h<300?[x,0,c]:[c,0,x]; return p.map(n=>(n+m)*255); }
+function mixColor(start, end, amount) {
+  if (document.querySelector('#gradient').value === 'hsv') { const a=rgbHsv(start), b=rgbHsv(end); let delta=((b[0]-a[0]+540)%360)-180; return hsvRgb([a[0]+delta*amount,a[1]+(b[1]-a[1])*amount,a[2]+(b[2]-a[2])*amount]); }
+  return start.map((value,index)=>value+(end[index]-value)*amount);
+}
+function gradientColor(amount) { const sorted=[...colors].sort((a,b)=>a.pos-b.pos), percent=amount*100; let upper=sorted.findIndex(stop=>stop.pos>=percent); if(upper<=0)return hexRgb(sorted[0].hex); if(upper<0)return hexRgb(sorted.at(-1).hex); const a=sorted[upper-1],b=sorted[upper],local=(percent-a.pos)/Math.max(1,b.pos-a.pos); return mixColor(hexRgb(a.hex),hexRgb(b.hex),local); }
+function renderColors() { const wrap=document.querySelector('#colors');wrap.replaceChildren();colors.forEach((stop,index)=>{const row=document.createElement('div');row.className='color-stop';row.innerHTML=`<input type="color" value="${stop.hex}"><input type="number" min="0" max="100" value="${stop.pos}" aria-label="위치"><button type="button" aria-label="삭제">×</button>`;const inputs=row.querySelectorAll('input');inputs[0].addEventListener('input',()=>{stop.hex=inputs[0].value;render();});inputs[1].addEventListener('input',()=>{stop.pos=Math.min(100,Math.max(0,Number(inputs[1].value)));render();});row.querySelector('button').addEventListener('click',()=>{if(colors.length<=1)return;colors.splice(index,1);renderColors();render();});wrap.append(row);}); }
+function drawText(context, commit) {
+  const text = textInput.value; if (!text) return;
+  const size=cellSize(), x=(slot%grid)*size, y=Math.floor(slot/grid)*size;
+  if (commit) context.clearRect(x,y,size,size);
+  context.save(); context.beginPath(); context.rect(x,y,size,size); context.clip();
+  const fontSize=Math.max(1,Math.round(size*Number(scaleInput.value))), family=document.querySelector('#font').value;
+  context.font=`${format.italic?'italic ':''}${format.bold?'700 ':'400 '}${fontSize}px ${family}`;
+  context.textBaseline='middle'; const align=document.querySelector('#align').value; context.textAlign='center';
+  const anchor=align==='left'?x+1:align==='right'?x+size-1:x+size/2;
+  const offsetX=Number(document.querySelector('#offset-x').value)||0, offsetY=Number(document.querySelector('#offset-y').value)||0;
+  const chars=Array.from(text.replace(/\n/g,' ')), widths=chars.map(char=>context.measureText(char).width), total=widths.reduce((sum,value)=>sum+value,0);
+  let cursor=anchor-total*(align==='center'?0.5:align==='right'?1:0);
+  chars.forEach((char,index)=>{ const width=widths[index], color=rgbHex(gradientColor(chars.length<2?0:index/(chars.length-1))); if(format.shadow){context.fillStyle='#00000099';context.fillText(char,cursor+width/2+Math.max(1,size/32)+offsetX,y+size/2+Math.max(1,size/32)+offsetY);} context.fillStyle=color;context.fillText(char,cursor+width/2+offsetX,y+size/2+offsetY); if(format.underline) context.fillRect(cursor+offsetX,y+size/2+fontSize*.42+offsetY,width,Math.max(1,fontSize/14)); cursor+=width; }); context.restore();
+}
 function render() {
   preview.width = atlas.width; preview.height = atlas.height;
   const context = preview.getContext('2d');
   context.imageSmoothingEnabled = false;
   context.clearRect(0, 0, preview.width, preview.height);
   context.drawImage(atlas, 0, 0);
+  drawText(context, false);
   const size = cellSize();
   context.strokeStyle = '#ffffff55'; context.lineWidth = Math.max(1, Math.round(size / 32));
   for (let index = 0; index <= grid; index++) {
@@ -93,14 +119,13 @@ tileInput.addEventListener('change', async () => {
   context.drawImage(image, x + Math.floor((size - width) / 2), y + Math.floor((size - height) / 2), width, height); render();
 });
 document.querySelector('#apply-text').addEventListener('click', async () => {
-  const text = textInput.value.trim(); if (!text) return;
-  await document.fonts.ready; const size = cellSize(); const x = (slot % grid) * size; const y = Math.floor(slot / grid) * size; const context = atlas.getContext('2d');
-  context.clearRect(x, y, size, size); context.fillStyle = colorInput.value; context.textAlign = 'center'; context.textBaseline = 'middle';
-  let fontSize = Math.max(1, Math.floor(size * Number(scaleInput.value))); context.font = `${fontSize}px MinecraftRegular, sans-serif`;
-  while (fontSize > 1 && context.measureText(text).width > size - 2) { context.font = `${--fontSize}px MinecraftRegular, sans-serif`; }
-  context.fillText(text, x + size / 2, y + size / 2); render();
+  if (!textInput.value) return; await document.fonts.ready; drawText(atlas.getContext('2d'), true); textInput.value=''; render();
 });
+['text','gradient','font','scale','offset-x','offset-y','align'].forEach(id=>document.querySelector(`#${id}`).addEventListener('input',()=>{document.querySelector('#size-value').textContent=`${Math.round(Number(scaleInput.value)*100)}%`;render();}));
+document.querySelector('#add-color').addEventListener('click',()=>{const last=colors.at(-1);colors.push({hex:last.hex,pos:100});const count=colors.length-1;colors=colors.map((color,index)=>({...color,pos:Math.round(index/count*100)}));renderColors();render();});
+['bold','italic','underline','shadow'].forEach(id=>document.querySelector(`#${id}`).addEventListener('click',()=>{format[id]=!format[id];document.querySelector(`#${id}`).setAttribute('aria-pressed',String(format[id]));render();}));
+document.querySelector('#font-input').addEventListener('change',async()=>{const file=document.querySelector('#font-input').files[0];if(!file)return;const family=`forBE-${Date.now()}`,url=URL.createObjectURL(file),face=new FontFace(family,`url(${url})`);await face.load();document.fonts.add(face);document.querySelector('#font').add(new Option(file.name,family,true,true));URL.revokeObjectURL(url);render();});
 document.querySelector('#clear').addEventListener('click', () => { const size = cellSize(); atlas.getContext('2d').clearRect((slot % grid) * size, Math.floor(slot / grid) * size, size, size); render(); });
 document.querySelector('#copy').addEventListener('click', async () => { await navigator.clipboard.writeText(String.fromCodePoint(codePoint())); document.querySelector('#copy').textContent = '복사됨'; setTimeout(() => document.querySelector('#copy').textContent = 'PUA 문자 복사', 1200); });
 document.querySelector('#download').addEventListener('click', () => atlas.toBlob(blob => { const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = glyphName(); link.click(); setTimeout(() => URL.revokeObjectURL(url), 0); }, 'image/png'));
-resetAtlas();
+renderColors();resetAtlas();

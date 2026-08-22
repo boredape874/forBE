@@ -19,6 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Include Minecraft preview fonts
+        run: cp -r public/fonts github-pages/fonts
       - uses: actions/upload-pages-artifact@v3
         with:
           path: github-pages
