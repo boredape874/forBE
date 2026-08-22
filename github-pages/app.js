@@ -18,7 +18,7 @@ const path = document.querySelector('#path');
 let page = 'E2';
 let slot = 0;
 let copiedSequence = '';
-const format = { bold: false, italic: false, underline: false, shadow: true };
+const format = { bold: false, italic: false, underline: false, shadow: false };
 let colors = [{ hex: '#54daf4', pos: 0 }, { hex: '#545eb6', pos: 100 }];
 let shadowColors = null;
 
@@ -88,14 +88,14 @@ function drawText(context, commit, text=textInput.value, targetSlot=slot, fixedP
   const family=minecraftFont(),customFont=document.querySelector('#font').value!=='minecraft',style=customFont?`${format.italic?'italic ':''}${format.bold?'700 ':'400 '}`:'';
   let fontSize=Math.max(1,Math.round(size*Number(scaleInput.value)));tileContext.font=`${style}${fontSize}px ${family}`;
   const chars=Array.from(text.replace(/\n/g,' '));let widths=chars.map(char=>tileContext.measureText(char).width),total=widths.reduce((sum,value)=>sum+value,0);
-  const sidePadding=Math.round(size*Number(document.querySelector('#spacing').value));
-  if(total>size-sidePadding*2){fontSize=Math.max(1,Math.floor(fontSize*(size-sidePadding*2)/total));tileContext.font=`${style}${fontSize}px ${family}`;widths=chars.map(char=>tileContext.measureText(char).width);total=widths.reduce((sum,value)=>sum+value,0);}
+  const rightGap=Number(document.querySelector('#spacing').value);
+  if(total>size-rightGap){fontSize=Math.max(1,Math.floor(fontSize*(size-rightGap)/total));tileContext.font=`${style}${fontSize}px ${family}`;widths=chars.map(char=>tileContext.measureText(char).width);total=widths.reduce((sum,value)=>sum+value,0);}
   tileContext.textBaseline='middle'; const align=document.querySelector('#align').value; tileContext.textAlign='center';
-  const anchor=align==='left'?1:align==='right'?size-1:size/2;
+  const sequenceCell=fixedPalette!==null,anchor=sequenceCell?0:align==='left'?0:align==='right'?size-rightGap:size/2;
   const offsetX=Number(document.querySelector('#offset-x').value)||0, offsetY=Number(document.querySelector('#offset-y').value)||0;
-  let cursor=anchor-total*(align==='center'?0.5:align==='right'?1:0);
+  let cursor=sequenceCell?0:anchor-total*(align==='center'?0.5:align==='right'?1:0);
   const palette=fixedPalette??gradientPalette(chars.length);
-  chars.forEach((char,index)=>{const width=widths[index],color=palette[index]??palette[0],shadowOffset=Math.max(1,Math.round(size/8));if(format.shadow){tileContext.fillStyle=rgbHex(color.shadow);tileContext.fillText(char,cursor+width/2+shadowOffset+offsetX,size/2+shadowOffset+offsetY);}tileContext.fillStyle=rgbHex(color.foreground);tileContext.fillText(char,cursor+width/2+offsetX,size/2+offsetY);if(format.underline)tileContext.fillRect(cursor+offsetX,size/2+fontSize*.42+offsetY,width,Math.max(1,fontSize/14));cursor+=width;});
+  chars.forEach((char,index)=>{const width=widths[index],color=palette[index]??palette[0];if(format.shadow){tileContext.fillStyle=rgbHex(color.shadow);tileContext.fillText(char,cursor+width/2+1+offsetX,size/2+1+offsetY);}tileContext.fillStyle=rgbHex(color.foreground);tileContext.fillText(char,cursor+width/2+offsetX,size/2+offsetY);if(format.underline)tileContext.fillRect(cursor+offsetX,size/2+fontSize*.42+offsetY,width,Math.max(1,fontSize/14));cursor+=width;});
   const image=tileContext.getImageData(0,0,size,size);for(let index=0;index<image.data.length;index+=4)image.data[index+3]=image.data[index+3]>=96?255:0;tileContext.putImageData(image,0,0);
   if(commit)context.clearRect(x,y,size,size);context.imageSmoothingEnabled=false;context.drawImage(tile,x,y);document.querySelector('#render-info').textContent=`실제 ${fontSize}px · 셀 ${size}px · 픽셀 알파 적용`;
 }
@@ -151,11 +151,11 @@ tileInput.addEventListener('change', async () => {
 document.querySelector('#apply-text').addEventListener('click', async () => {
   if (!textInput.value) return;await document.fonts.ready;const sequence=document.querySelector('#packing').value==='sequence',plan=sequencePlan(textInput.value);if(sequence)plan.items.forEach(item=>drawText(atlas.getContext('2d'),true,item.char,item.targetSlot,item.palette));else drawText(atlas.getContext('2d'),true);copiedSequence=sequence?plan.output:String.fromCodePoint(codePoint());document.querySelector('#copy').textContent=sequence?`${plan.items.length}자 PUA 문자열 복사`:'PUA 문자 복사';textInput.value='';render();
 });
-['text','packing','gradient','font','scale','spacing','offset-x','offset-y','align'].forEach(id=>document.querySelector(`#${id}`).addEventListener('input',()=>{document.querySelector('#size-value').textContent=`${Math.round(Number(scaleInput.value)*100)}%`;document.querySelector('#spacing-value').textContent=`${Math.round(Number(document.querySelector('#spacing').value)*100)}%`;render();}));
+['text','packing','gradient','font','scale','spacing','offset-x','offset-y','align'].forEach(id=>document.querySelector(`#${id}`).addEventListener('input',()=>{document.querySelector('#size-value').textContent=`${Math.round(Number(scaleInput.value)*100)}%`;document.querySelector('#spacing-value').textContent=`${document.querySelector('#spacing').value}px`;render();}));
 document.querySelector('#add-color').addEventListener('click',()=>{const last=colors.at(-1);colors.push({hex:last.hex,pos:100});const count=colors.length-1;colors=colors.map((color,index)=>({...color,pos:Math.round(index/count*100)}));renderColors();render();});
 document.querySelector('#custom-shadow').addEventListener('change',event=>{shadowColors=event.target.checked?colors.map(color=>({hex:rgbHex(hexRgb(color.hex).map(value=>value*.25)),pos:color.pos})):null;document.querySelector('#shadow-editor').hidden=!shadowColors;renderShadowColors();render();});
 document.querySelector('#add-shadow-color').addEventListener('click',()=>{if(!shadowColors)return;const last=shadowColors.at(-1);shadowColors.push({hex:last.hex,pos:100});const count=shadowColors.length-1;shadowColors=shadowColors.map((color,index)=>({...color,pos:Math.round(index/count*100)}));renderShadowColors();render();});
-['bold','italic','underline','shadow'].forEach(id=>document.querySelector(`#${id}`).addEventListener('click',()=>{format[id]=!format[id];document.querySelector(`#${id}`).setAttribute('aria-pressed',String(format[id]));render();}));
+['bold','italic','underline','shadow'].forEach(id=>document.querySelector(`#${id}`).addEventListener('click',()=>{format[id]=!format[id];document.querySelector(`#${id}`).setAttribute('aria-pressed',String(format[id]));if(id==='shadow')document.querySelector('#shadow-controls').hidden=!format.shadow;render();}));
 document.querySelector('#font-input').addEventListener('change',async()=>{const file=document.querySelector('#font-input').files[0];if(!file)return;const family=`forBE-${Date.now()}`,url=URL.createObjectURL(file),face=new FontFace(family,`url(${url})`);await face.load();document.fonts.add(face);document.querySelector('#font').add(new Option(file.name,family,true,true));URL.revokeObjectURL(url);render();});
 document.querySelector('#clear').addEventListener('click', () => { const size = cellSize(); atlas.getContext('2d').clearRect((slot % grid) * size, Math.floor(slot / grid) * size, size, size); render(); });
 document.querySelector('#copy').addEventListener('click', async () => { await navigator.clipboard.writeText(copiedSequence||String.fromCodePoint(codePoint()));const label=document.querySelector('#copy').textContent;document.querySelector('#copy').textContent='복사됨';setTimeout(()=>document.querySelector('#copy').textContent=label,1200); });
