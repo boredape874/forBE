@@ -88,7 +88,7 @@ function drawText(context, commit, text=textInput.value, targetSlot=slot, fixedP
   const family=minecraftFont(),customFont=document.querySelector('#font').value!=='minecraft',style=customFont?`${format.italic?'italic ':''}${format.bold?'700 ':'400 '}`:'';
   let fontSize=Math.max(1,Math.round(size*Number(scaleInput.value)));tileContext.font=`${style}${fontSize}px ${family}`;
   const chars=Array.from(text.replace(/\n/g,' '));let widths=chars.map(char=>tileContext.measureText(char).width),total=widths.reduce((sum,value)=>sum+value,0);
-  const rightGap=Number(document.querySelector('#spacing').value);
+  const gameGap=Number(document.querySelector('#spacing').value),rightGap=Math.max(0,Math.round(size/8)*gameGap);
   if(total>size-rightGap){fontSize=Math.max(1,Math.floor(fontSize*(size-rightGap)/total));tileContext.font=`${style}${fontSize}px ${family}`;widths=chars.map(char=>tileContext.measureText(char).width);total=widths.reduce((sum,value)=>sum+value,0);}
   tileContext.textBaseline='middle'; const align=document.querySelector('#align').value; tileContext.textAlign='center';
   const sequenceCell=fixedPalette!==null,anchor=sequenceCell?0:align==='left'?0:align==='right'?size-rightGap:size/2;
