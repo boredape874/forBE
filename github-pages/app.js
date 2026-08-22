@@ -87,15 +87,15 @@ function drawText(context, commit, text=textInput.value, targetSlot=slot, fixedP
   const tile=document.createElement('canvas');tile.width=size;tile.height=size;const tileContext=tile.getContext('2d',{willReadFrequently:true});
   const family=minecraftFont(),customFont=document.querySelector('#font').value!=='minecraft',style=customFont?`${format.italic?'italic ':''}${format.bold?'700 ':'400 '}`:'';
   let fontSize=Math.max(1,Math.round(size*Number(scaleInput.value)));tileContext.font=`${style}${fontSize}px ${family}`;
-  const chars=Array.from(text.replace(/\n/g,' '));let widths=chars.map(char=>tileContext.measureText(char).width),total=widths.reduce((sum,value)=>sum+value,0);
-  const rightGap=Math.max(0,Math.round(size/8)*Number(document.querySelector('#spacing').value));
-  if(total>size-rightGap){fontSize=Math.max(1,Math.floor(fontSize*(size-rightGap)/total));tileContext.font=`${style}${fontSize}px ${family}`;widths=chars.map(char=>tileContext.measureText(char).width);total=widths.reduce((sum,value)=>sum+value,0);}
+  const chars=Array.from(text.replace(/\n/g,' ')),letterGap=chars.length>1?Number(document.querySelector('#spacing').value):0;let widths=chars.map(char=>tileContext.measureText(char).width),total=widths.reduce((sum,value)=>sum+value,0)+letterGap*Math.max(0,chars.length-1);
+  const rightGap=fixedPalette!==null?Math.max(0,Math.round(size/8)*Number(document.querySelector('#spacing').value)):0;
+  if(total>size-rightGap){fontSize=Math.max(1,Math.floor(fontSize*(size-rightGap)/total));tileContext.font=`${style}${fontSize}px ${family}`;widths=chars.map(char=>tileContext.measureText(char).width);total=widths.reduce((sum,value)=>sum+value,0)+letterGap*Math.max(0,chars.length-1);}
   tileContext.textBaseline='middle'; const align=document.querySelector('#align').value; tileContext.textAlign='center';
   const sequenceCell=fixedPalette!==null,anchor=sequenceCell?0:align==='left'?0:align==='right'?size-rightGap:size/2;
   const offsetX=Number(document.querySelector('#offset-x').value)||0, offsetY=Number(document.querySelector('#offset-y').value)||0;
   let cursor=sequenceCell?0:anchor-total*(align==='center'?0.5:align==='right'?1:0);
   const palette=fixedPalette??gradientPalette(chars.length);
-  chars.forEach((char,index)=>{const width=widths[index],color=palette[index]??palette[0];if(format.shadow){tileContext.fillStyle=rgbHex(color.shadow);tileContext.fillText(char,cursor+width/2+1+offsetX,size/2+1+offsetY);}tileContext.fillStyle=rgbHex(color.foreground);tileContext.fillText(char,cursor+width/2+offsetX,size/2+offsetY);if(format.underline)tileContext.fillRect(cursor+offsetX,size/2+fontSize*.42+offsetY,width,Math.max(1,fontSize/14));cursor+=width;});
+  chars.forEach((char,index)=>{const width=widths[index],color=palette[index]??palette[0];if(format.shadow){tileContext.fillStyle=rgbHex(color.shadow);tileContext.fillText(char,cursor+width/2+1+offsetX,size/2+1+offsetY);}tileContext.fillStyle=rgbHex(color.foreground);tileContext.fillText(char,cursor+width/2+offsetX,size/2+offsetY);if(format.underline)tileContext.fillRect(cursor+offsetX,size/2+fontSize*.42+offsetY,width,Math.max(1,fontSize/14));cursor+=width+letterGap;});
   const image=tileContext.getImageData(0,0,size,size);let maxOpaqueX=-1,maxOpaqueY=0;for(let index=0;index<image.data.length;index+=4){image.data[index+3]=image.data[index+3]>=96?255:0;if(image.data[index+3]===255){const pixel=index/4,x=pixel%size,y=Math.floor(pixel/size);if(x>maxOpaqueX){maxOpaqueX=x;maxOpaqueY=y;}}}if(sequenceCell&&maxOpaqueX>=0&&rightGap>0)for(let distance=1;distance<=rightGap&&maxOpaqueX+distance<size;distance++)image.data[(maxOpaqueY*size+maxOpaqueX+distance)*4+3]=20;tileContext.putImageData(image,0,0);
   if(commit)context.clearRect(x,y,size,size);context.imageSmoothingEnabled=false;context.drawImage(tile,x,y);document.querySelector('#render-info').textContent=`실제 ${fontSize}px · 셀 ${size}px · 픽셀 알파 적용`;
 }
