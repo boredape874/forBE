@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>forBE · Bedrock Glyph Editor</title>
     <link rel="stylesheet" href="style.css">
-    <style>@font-face{font-family:MinecraftRegular;src:url(fonts/MinecraftRegular.woff)}.color-stops{display:flex;flex-direction:column;gap:6px}.color-stop{display:grid;grid-template-columns:42px 1fr 34px;gap:6px}.color-stop input[type=color]{width:42px;height:38px}.color-stop input[type=number]{min-width:0}.color-stop button{padding:4px;background:#7f1d1d}#atlas-preview{display:block;width:min(100%,calc(75vh - 32px));height:auto;aspect-ratio:1;object-fit:contain}</style>
+    <style>@font-face{font-family:MinecraftOfficial;src:url(fonts/MinecraftOfficial.ttf)}@font-face{font-family:MinecraftRegular;src:url(fonts/MinecraftRegular.woff)}@font-face{font-family:MinecraftBold;src:url(fonts/MinecraftBold.woff)}@font-face{font-family:MinecraftItalic;src:url(fonts/MinecraftItalic.woff)}@font-face{font-family:MinecraftBoldItalic;src:url(fonts/MinecraftBoldItalic.woff)}@font-face{font-family:MinecraftRegularAlt;src:url(fonts/MinecraftRegularAlt.ttf)}@font-face{font-family:MinecraftBoldAlt;src:url(fonts/MinecraftBoldAlt.ttf)}@font-face{font-family:MinecraftItalicAlt;src:url(fonts/MinecraftItalicAlt.ttf)}@font-face{font-family:MinecraftBoldItalicAlt;src:url(fonts/MinecraftBoldItalicAlt.ttf)}@font-face{font-family:MinecraftRus;src:url(fonts/MinecraftRus.ttf)}.color-stops{display:flex;flex-direction:column;gap:6px}.color-stop{display:grid;grid-template-columns:42px 1fr 34px;gap:6px}.color-stop input[type=color]{width:42px;height:38px}.color-stop input[type=number]{min-width:0}.color-stop button{padding:4px;background:#7f1d1d}#atlas-preview{display:block;width:min(100%,calc(75vh - 32px));height:auto;aspect-ratio:1;object-fit:contain}</style>
   </head>
   <body>
     <main>
@@ -27,11 +27,12 @@
           <label>텍스트<textarea id="text" rows="3" placeholder="예: SHOP"></textarea></label>
           <label>배치 방식<select id="packing"><option value="sequence">문자별 연속 슬롯 · 권장</option><option value="single">한 슬롯에 전체 텍스트</option></select></label>
           <label>그라데이션 색상</label><div id="colors" class="color-stops"></div><button id="add-color" type="button">색상 추가</button>
-          <label>그라데이션<select id="gradient"><option value="rgb">RGB</option><option value="hsv">HSV</option></select></label>
+          <label>그라데이션<select id="gradient"><option value="rgb">RGB</option><option value="hsl">HSL</option><option value="oklab">OKLAB</option><option value="oklch">OKLCH</option><option value="cielab">CIELAB</option><option value="luvLCh">LuvLCh</option></select></label>
           <div class="format-buttons"><button id="bold" aria-pressed="false">B</button><button id="italic" aria-pressed="false"><i>I</i></button><button id="underline" aria-pressed="false"><u>U</u></button><button id="shadow" aria-pressed="true">그림자</button></div>
-          <label>글꼴<select id="font"><option value="MinecraftRegular, sans-serif">Minecraft</option><option value="sans-serif">Sans</option><option value="serif">Serif</option><option value="monospace">Mono</option></select></label>
+          <label>글꼴<select id="font"><option value="minecraft">Minecraft 원본 글꼴 묶음</option><option value="sans-serif">Sans</option><option value="serif">Serif</option><option value="monospace">Mono</option></select></label>
           <label>사용자 글꼴<input id="font-input" type="file" accept=".ttf,.otf,.woff,.woff2"></label>
-          <label>최대 크기 <output id="size-value">80%</output><input id="scale" type="range" min="0.1" max="1.5" step="0.05" value="0.8"></label><p id="render-info" class="hint">셀 폭에 맞춰 자동 축소 · 픽셀 알파 적용</p>
+          <label>최대 크기 <output id="size-value">80%</output><input id="scale" type="range" min="0.1" max="1.5" step="0.05" value="0.8"></label>
+          <label>글자 좌우 여백 <output id="spacing-value">15%</output><input id="spacing" type="range" min="0" max="0.25" step="0.025" value="0.15"></label><p id="render-info" class="hint">셀 폭과 여백에 맞춰 자동 축소 · 픽셀 알파 적용</p>
           <div class="two"><label>X 위치<input id="offset-x" type="number" value="0" step="1"></label><label>Y 위치<input id="offset-y" type="number" value="0" step="1"></label></div>
           <label>정렬<select id="align"><option value="center">가운데</option><option value="left">왼쪽</option><option value="right">오른쪽</option></select></label>
           <p class="hint">입력 내용은 선택 칸에 실시간 미리보기됩니다.</p>
@@ -43,6 +44,6 @@
       </section>
     </main>
     <canvas id="atlas" hidden></canvas>
-    <script src="app.js"></script>
+    <script type="module" src="app.js"></script>
   </body>
 </html>

@@ -1,3 +1,5 @@
+import { ColorGradient, getRGBColorStop, getShadowColors, sortColors } from './rgbirdflop.js';
+
 const grid = 16;
 const atlas = document.querySelector('#atlas');
 const preview = document.querySelector('#atlas-preview');
@@ -51,27 +53,47 @@ function contentSize() {
 }
 function hexRgb(hex) { const value = parseInt(hex.slice(1), 16); return [(value >> 16) & 255, (value >> 8) & 255, value & 255]; }
 function rgbHex(rgb) { return `#${rgb.map(value => Math.round(value).toString(16).padStart(2, '0')).join('')}`; }
-function rgbHsv(rgb) { const [r,g,b] = rgb.map(v => v / 255), max = Math.max(r,g,b), min = Math.min(r,g,b), d = max-min; let h = 0; if(d) h=max===r?((g-b)/d)%6:max===g?(b-r)/d+2:(r-g)/d+4; return [((h*60)+360)%360,max?d/max:0,max]; }
-function hsvRgb(hsv) { const [h,s,v]=hsv, c=v*s, x=c*(1-Math.abs((h/60)%2-1)), m=v-c; const p=h<60?[c,x,0]:h<120?[x,c,0]:h<180?[0,c,x]:h<240?[0,x,c]:h<300?[x,0,c]:[c,0,x]; return p.map(n=>(n+m)*255); }
-function mixColor(start, end, amount) {
-  if (document.querySelector('#gradient').value === 'hsv') { const a=rgbHsv(start), b=rgbHsv(end); let delta=((b[0]-a[0]+540)%360)-180; return hsvRgb([a[0]+delta*amount,a[1]+(b[1]-a[1])*amount,a[2]+(b[2]-a[2])*amount]); }
-  return start.map((value,index)=>value+(end[index]-value)*amount);
+function gradientPalette(count) {
+  const options={colors:sortColors(colors),shadowColors:null};
+  const foreground=new ColorGradient(options.colors.map(getRGBColorStop),count,document.querySelector('#gradient').value);
+  const shadow=new ColorGradient(getShadowColors(options).map(getRGBColorStop),count);
+  return Array.from({length:count},()=>({foreground:foreground.next(),shadow:shadow.next()}));
 }
-function gradientColor(amount) { const sorted=[...colors].sort((a,b)=>a.pos-b.pos), percent=amount*100; let upper=sorted.findIndex(stop=>stop.pos>=percent); if(upper<=0)return hexRgb(sorted[0].hex); if(upper<0)return hexRgb(sorted.at(-1).hex); const a=sorted[upper-1],b=sorted[upper],local=(percent-a.pos)/Math.max(1,b.pos-a.pos); return mixColor(hexRgb(a.hex),hexRgb(b.hex),local); }
+function minecraftFont() {
+  const selected=document.querySelector('#font').value;
+  if(selected!=='minecraft')return selected;
+  if(format.bold&&format.italic)return 'MinecraftBoldItalic, MinecraftBoldItalicAlt, MinecraftOfficial, sans-serif';
+  if(format.bold)return 'MinecraftBold, MinecraftBoldAlt, MinecraftOfficial, sans-serif';
+  if(format.italic)return 'MinecraftItalic, MinecraftItalicAlt, MinecraftOfficial, sans-serif';
+  return 'MinecraftRegular, MinecraftOfficial, MinecraftRegularAlt, MinecraftRus, sans-serif';
+}
+function sequencePlan(text) {
+  const chars=Array.from(text),palette=gradientPalette(chars.length),items=[];
+  let output='',used=0;
+  chars.forEach((char,index)=>{
+    if(/\s/u.test(char)){output+=char;return;}
+    if(slot+used>=256)return;
+    items.push({char,targetSlot:slot+used,palette:[palette[index]]});
+    output+=String.fromCodePoint(parseInt(page,16)*256+slot+used);used++;
+  });
+  return {items,output};
+}
 function renderColors() { const wrap=document.querySelector('#colors');wrap.replaceChildren();colors.forEach((stop,index)=>{const row=document.createElement('div');row.className='color-stop';row.innerHTML=`<input type="color" value="${stop.hex}"><input type="number" min="0" max="100" value="${stop.pos}" aria-label="위치"><button type="button" aria-label="삭제">×</button>`;const inputs=row.querySelectorAll('input');inputs[0].addEventListener('input',()=>{stop.hex=inputs[0].value;render();});inputs[1].addEventListener('input',()=>{stop.pos=Math.min(100,Math.max(0,Number(inputs[1].value)));render();});row.querySelector('button').addEventListener('click',()=>{if(colors.length<=1)return;colors.splice(index,1);renderColors();render();});wrap.append(row);}); }
-function drawText(context, commit, text=textInput.value, targetSlot=slot, fixedColor=null) {
+function drawText(context, commit, text=textInput.value, targetSlot=slot, fixedPalette=null) {
   if (!text) return;
   const size=cellSize(), x=(targetSlot%grid)*size, y=Math.floor(targetSlot/grid)*size;
   const tile=document.createElement('canvas');tile.width=size;tile.height=size;const tileContext=tile.getContext('2d',{willReadFrequently:true});
-  const family=document.querySelector('#font').value, style=`${format.italic?'italic ':''}${format.bold?'700 ':'400 '}`;
+  const family=minecraftFont(),customFont=document.querySelector('#font').value!=='minecraft',style=customFont?`${format.italic?'italic ':''}${format.bold?'700 ':'400 '}`:'';
   let fontSize=Math.max(1,Math.round(size*Number(scaleInput.value)));tileContext.font=`${style}${fontSize}px ${family}`;
   const chars=Array.from(text.replace(/\n/g,' '));let widths=chars.map(char=>tileContext.measureText(char).width),total=widths.reduce((sum,value)=>sum+value,0);
-  if(total>size-2){fontSize=Math.max(1,Math.floor(fontSize*(size-2)/total));tileContext.font=`${style}${fontSize}px ${family}`;widths=chars.map(char=>tileContext.measureText(char).width);total=widths.reduce((sum,value)=>sum+value,0);}
+  const sidePadding=Math.round(size*Number(document.querySelector('#spacing').value));
+  if(total>size-sidePadding*2){fontSize=Math.max(1,Math.floor(fontSize*(size-sidePadding*2)/total));tileContext.font=`${style}${fontSize}px ${family}`;widths=chars.map(char=>tileContext.measureText(char).width);total=widths.reduce((sum,value)=>sum+value,0);}
   tileContext.textBaseline='middle'; const align=document.querySelector('#align').value; tileContext.textAlign='center';
   const anchor=align==='left'?1:align==='right'?size-1:size/2;
   const offsetX=Number(document.querySelector('#offset-x').value)||0, offsetY=Number(document.querySelector('#offset-y').value)||0;
   let cursor=anchor-total*(align==='center'?0.5:align==='right'?1:0);
-  chars.forEach((char,index)=>{const width=widths[index],color=rgbHex(gradientColor(fixedColor===null?(chars.length<2?0:index/(chars.length-1)):fixedColor));if(format.shadow){tileContext.fillStyle='#000';tileContext.fillText(char,cursor+width/2+Math.max(1,size/32)+offsetX,size/2+Math.max(1,size/32)+offsetY);}tileContext.fillStyle=color;tileContext.fillText(char,cursor+width/2+offsetX,size/2+offsetY);if(format.underline)tileContext.fillRect(cursor+offsetX,size/2+fontSize*.42+offsetY,width,Math.max(1,fontSize/14));cursor+=width;});
+  const palette=fixedPalette??gradientPalette(chars.length);
+  chars.forEach((char,index)=>{const width=widths[index],color=palette[index]??palette[0],shadowOffset=Math.max(1,Math.round(size/8));if(format.shadow){tileContext.fillStyle=rgbHex(color.shadow);tileContext.fillText(char,cursor+width/2+shadowOffset+offsetX,size/2+shadowOffset+offsetY);}tileContext.fillStyle=rgbHex(color.foreground);tileContext.fillText(char,cursor+width/2+offsetX,size/2+offsetY);if(format.underline)tileContext.fillRect(cursor+offsetX,size/2+fontSize*.42+offsetY,width,Math.max(1,fontSize/14));cursor+=width;});
   const image=tileContext.getImageData(0,0,size,size);for(let index=0;index<image.data.length;index+=4)image.data[index+3]=image.data[index+3]>=96?255:0;tileContext.putImageData(image,0,0);
   if(commit)context.clearRect(x,y,size,size);context.imageSmoothingEnabled=false;context.drawImage(tile,x,y);document.querySelector('#render-info').textContent=`실제 ${fontSize}px · 셀 ${size}px · 픽셀 알파 적용`;
 }
@@ -81,7 +103,7 @@ function render() {
   context.imageSmoothingEnabled = false;
   context.clearRect(0, 0, preview.width, preview.height);
   context.drawImage(atlas, 0, 0);
-  const draft=Array.from(textInput.value.replace(/\s/g,''));if(document.querySelector('#packing').value==='sequence'&&draft.length>1)draft.slice(0,256-slot).forEach((char,index)=>drawText(context,false,char,slot+index,index/Math.max(1,draft.length-1)));else drawText(context,false);
+  const plan=sequencePlan(textInput.value);if(document.querySelector('#packing').value==='sequence'&&plan.items.length)plan.items.forEach(item=>drawText(context,false,item.char,item.targetSlot,item.palette));else drawText(context,false);
   const size = cellSize();
   context.strokeStyle = '#ffffff55'; context.lineWidth = Math.max(1, Math.round(size / 32));
   for (let index = 0; index <= grid; index++) {
@@ -125,9 +147,9 @@ tileInput.addEventListener('change', async () => {
   context.drawImage(image, x + Math.floor((size - width) / 2), y + Math.floor((size - height) / 2), width, height); render();
 });
 document.querySelector('#apply-text').addEventListener('click', async () => {
-  if (!textInput.value) return;await document.fonts.ready;const chars=Array.from(textInput.value.replace(/\s/g,'')),sequence=document.querySelector('#packing').value==='sequence'&&chars.length>1,usable=chars.slice(0,256-slot);if(sequence)usable.forEach((char,index)=>drawText(atlas.getContext('2d'),true,char,slot+index,index/Math.max(1,usable.length-1)));else drawText(atlas.getContext('2d'),true);copiedSequence=sequence?usable.map((_,index)=>String.fromCodePoint(parseInt(page,16)*256+slot+index)).join(''):String.fromCodePoint(codePoint());document.querySelector('#copy').textContent=sequence?`${usable.length}자 PUA 문자열 복사`:'PUA 문자 복사';textInput.value='';render();
+  if (!textInput.value) return;await document.fonts.ready;const sequence=document.querySelector('#packing').value==='sequence',plan=sequencePlan(textInput.value);if(sequence)plan.items.forEach(item=>drawText(atlas.getContext('2d'),true,item.char,item.targetSlot,item.palette));else drawText(atlas.getContext('2d'),true);copiedSequence=sequence?plan.output:String.fromCodePoint(codePoint());document.querySelector('#copy').textContent=sequence?`${plan.items.length}자 PUA 문자열 복사`:'PUA 문자 복사';textInput.value='';render();
 });
-['text','packing','gradient','font','scale','offset-x','offset-y','align'].forEach(id=>document.querySelector(`#${id}`).addEventListener('input',()=>{document.querySelector('#size-value').textContent=`${Math.round(Number(scaleInput.value)*100)}%`;render();}));
+['text','packing','gradient','font','scale','spacing','offset-x','offset-y','align'].forEach(id=>document.querySelector(`#${id}`).addEventListener('input',()=>{document.querySelector('#size-value').textContent=`${Math.round(Number(scaleInput.value)*100)}%`;document.querySelector('#spacing-value').textContent=`${Math.round(Number(document.querySelector('#spacing').value)*100)}%`;render();}));
 document.querySelector('#add-color').addEventListener('click',()=>{const last=colors.at(-1);colors.push({hex:last.hex,pos:100});const count=colors.length-1;colors=colors.map((color,index)=>({...color,pos:Math.round(index/count*100)}));renderColors();render();});
 ['bold','italic','underline','shadow'].forEach(id=>document.querySelector(`#${id}`).addEventListener('click',()=>{format[id]=!format[id];document.querySelector(`#${id}`).setAttribute('aria-pressed',String(format[id]));render();}));
 document.querySelector('#font-input').addEventListener('change',async()=>{const file=document.querySelector('#font-input').files[0];if(!file)return;const family=`forBE-${Date.now()}`,url=URL.createObjectURL(file),face=new FontFace(family,`url(${url})`);await face.load();document.fonts.add(face);document.querySelector('#font').add(new Option(file.name,family,true,true));URL.revokeObjectURL(url);render();});
