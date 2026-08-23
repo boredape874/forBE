@@ -18,6 +18,7 @@ const path = document.querySelector('#path');
 let page = 'E2';
 let slot = 0;
 let copiedSequence = '';
+let pendingTileImage = null;
 const format = { bold: false, italic: false, underline: false, shadow: false };
 let colors = [{ hex: '#54daf4', pos: 0 }, { hex: '#545eb6', pos: 100 }];
 let shadowColors = null;
@@ -99,6 +100,12 @@ function drawText(context, commit, text=textInput.value, targetSlot=slot, fixedP
   const image=tileContext.getImageData(0,0,size,size);let maxOpaqueX=-1,maxOpaqueY=0;for(let index=0;index<image.data.length;index+=4){image.data[index+3]=image.data[index+3]>=96?255:0;if(image.data[index+3]===255){const pixel=index/4,x=pixel%size,y=Math.floor(pixel/size);if(x>maxOpaqueX){maxOpaqueX=x;maxOpaqueY=y;}}}if(sequenceCell&&maxOpaqueX>=0&&rightGap>0)for(let distance=1;distance<=rightGap&&maxOpaqueX+distance<size;distance++)image.data[(maxOpaqueY*size+maxOpaqueX+distance)*4+3]=20;tileContext.putImageData(image,0,0);
   if(commit)context.clearRect(x,y,size,size);context.imageSmoothingEnabled=false;context.drawImage(tile,x,y);document.querySelector('#render-info').textContent=`실제 ${fontSize}px · 셀 ${size}px · 픽셀 알파 적용`;
 }
+function drawTileImage(context,commit) {
+  if(!pendingTileImage)return;
+  const size=cellSize(),x=(slot%grid)*size,y=Math.floor(slot/grid)*size,fit=document.querySelector('#image-fit').value,scaleValue=Number(document.querySelector('#image-scale').value),offsetX=Number(document.querySelector('#image-offset-x').value),offsetY=Number(document.querySelector('#image-offset-y').value),sourceWidth=pendingTileImage.width,sourceHeight=pendingTileImage.height;
+  let width=size,height=size;if(fit!=='stretch'){const base=fit==='cover'?Math.max(size/sourceWidth,size/sourceHeight):Math.min(size/sourceWidth,size/sourceHeight);width=Math.max(1,Math.round(sourceWidth*base*scaleValue));height=Math.max(1,Math.round(sourceHeight*base*scaleValue));}
+  const targetX=x+Math.floor((size-width)/2)+offsetX,targetY=y+Math.floor((size-height)/2)+offsetY;if(commit)context.clearRect(x,y,size,size);context.save();context.beginPath();context.rect(x,y,size,size);context.clip();context.imageSmoothingEnabled=false;context.drawImage(pendingTileImage,targetX,targetY,width,height);context.restore();
+}
 function render() {
   preview.width = atlas.width; preview.height = atlas.height;
   const context = preview.getContext('2d');
@@ -106,6 +113,7 @@ function render() {
   context.clearRect(0, 0, preview.width, preview.height);
   context.drawImage(atlas, 0, 0);
   const plan=sequencePlan(textInput.value);if(document.querySelector('#packing').value==='sequence'&&plan.items.length)plan.items.forEach(item=>drawText(context,false,item.char,item.targetSlot,item.palette));else drawText(context,false);
+  drawTileImage(context,false);
   const size = cellSize();
   context.strokeStyle = '#ffffff55'; context.lineWidth = Math.max(1, Math.round(size / 32));
   for (let index = 0; index <= grid; index++) {
@@ -141,13 +149,10 @@ preview.addEventListener('click', event => {
   slot = Math.min(255, Math.max(0, Math.floor(y / size) * grid + Math.floor(x / size)));copiedSequence='';document.querySelector('#copy').textContent='PUA 문자 복사';render();
 });
 pageInput.addEventListener('change', () => { page = pageInput.value;copiedSequence='';document.querySelector('#copy').textContent='PUA 문자 복사';render(); });
-tileInput.addEventListener('change', async () => {
-  const file = tileInput.files[0]; if (!file) return;
-  const image = await imageFromFile(file); const size = cellSize(); const x = (slot % grid) * size; const y = Math.floor(slot / grid) * size;
-  const context = atlas.getContext('2d'); context.clearRect(x, y, size, size); context.imageSmoothingEnabled = false;
-  const scale = Math.min(size / image.width, size / image.height); const width = Math.max(1, Math.round(image.width * scale)); const height = Math.max(1, Math.round(image.height * scale));
-  context.drawImage(image, x + Math.floor((size - width) / 2), y + Math.floor((size - height) / 2), width, height); render();
-});
+tileInput.addEventListener('change',async()=>{const file=tileInput.files[0];if(!file)return;pendingTileImage=await imageFromFile(file);document.querySelector('#image-name').textContent=`${file.name} · ${pendingTileImage.width}×${pendingTileImage.height}px`;render();});
+['image-fit','image-scale','image-offset-x','image-offset-y'].forEach(id=>document.querySelector(`#${id}`).addEventListener('input',()=>{document.querySelector('#image-scale-value').textContent=`${Math.round(Number(document.querySelector('#image-scale').value)*100)}%`;render();}));
+document.querySelector('#apply-image').addEventListener('click',()=>{if(!pendingTileImage)return;drawTileImage(atlas.getContext('2d'),true);pendingTileImage=null;tileInput.value='';document.querySelector('#image-name').textContent='선택된 이미지 없음';render();});
+document.querySelector('#download-tile').addEventListener('click',()=>{const size=cellSize(),tile=document.createElement('canvas');tile.width=size;tile.height=size;tile.getContext('2d').drawImage(atlas,(slot%grid)*size,Math.floor(slot/grid)*size,size,size,0,0,size,size);tile.toBlob(blob=>{const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=`U+${codePoint().toString(16).toUpperCase()}.png`;link.click();setTimeout(()=>URL.revokeObjectURL(url),0);},'image/png');});
 document.querySelector('#apply-text').addEventListener('click', async () => {
   if (!textInput.value) return;await document.fonts.ready;const sequence=document.querySelector('#packing').value==='sequence',plan=sequencePlan(textInput.value),context=atlas.getContext('2d');if(sequence)plan.items.forEach(item=>drawText(context,true,item.char,item.targetSlot,item.palette));else drawText(context,true);copiedSequence=sequence?plan.output:String.fromCodePoint(codePoint());document.querySelector('#copy').textContent=sequence?`${plan.charCount}자 PUA 문자열 복사`:'PUA 문자 복사';textInput.value='';render();
 });

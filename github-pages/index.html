@@ -38,7 +38,12 @@
           <label>정렬<select id="align"><option value="center">가운데</option><option value="left">왼쪽</option><option value="right">오른쪽</option></select></label>
           <p class="hint">입력 내용은 선택 칸에 실시간 미리보기됩니다.</p>
           <button id="apply-text">선택 칸부터 텍스트 확정</button>
-          <label>이 칸을 이미지로 교체<input id="tile-input" type="file" accept="image/png,image/webp,image/jpeg"></label>
+          <h3>이미지 삽입</h3>
+          <label>슬롯 이미지 선택<input id="tile-input" type="file" accept="image/png,image/webp,image/jpeg"></label><p id="image-name" class="hint">선택된 이미지 없음</p>
+          <label>맞춤 방식<select id="image-fit"><option value="stretch">슬롯 전체 채우기 · 원본 방식</option><option value="contain">비율 유지 · 전체 표시</option><option value="cover">비율 유지 · 슬롯 채우기</option></select></label>
+          <label>이미지 크기 <output id="image-scale-value">100%</output><input id="image-scale" type="range" min="0.1" max="2" step="0.05" value="1"></label>
+          <div class="two"><label>이미지 X<input id="image-offset-x" type="number" value="0" step="1"></label><label>이미지 Y<input id="image-offset-y" type="number" value="0" step="1"></label></div>
+          <button id="apply-image">선택 슬롯에 이미지 적용</button><button id="download-tile" type="button">선택 슬롯 PNG 다운로드</button>
           <button class="danger" id="clear">선택 칸 비우기</button>
           <p class="hint">다운로드한 파일을 리소스팩의 <code id="path">font/glyph_E2.png</code>에 넣으세요.</p>
         </aside>
